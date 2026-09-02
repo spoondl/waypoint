@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Waypoint — Travel Tracker</title>
+<style>
+  :root{
+    --bg:#0b0d12;
+    --panel:#12151c;
+    --panel-2:#161a23;
+    --border:#232838;
+    --border-soft:#1b1f2b;
+    --text:#e7e9ee;
+    --text-dim:#8b93a7;
+    --text-faint:#5b6379;
+    --accent:#3fb8af;
+    --accent-soft:rgba(63,184,175,0.15);
+    --visited:#34d399;
+    --visited-glow:rgba(52,211,153,0.55);
+    --wishlist:#f4c563;
+    --wishlist-glow:rgba(244,197,99,0.45);
+    --grey:#2a2f3d;
+    --grey-hover:#3a4053;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(63,184,175,0.10), transparent),
+      radial-gradient(ellipse 700px 500px at 100% 0%, rgba(244,197,99,0.06), transparent),
+      var(--bg);
+    color:var(--text);
+    font-family: ui-sans-serif, -apple-system, "Segoe UI", Inter, system-ui, sans-serif;
+    min-height:100vh;
+  }
+  ::selection{ background:var(--accent-soft); }
+  ::-webkit-scrollbar{ width:10px; height:10px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{ background:#282e3d; border-radius:8px; }
+  ::-webkit-scrollbar-thumb:hover{ background:#333a4d; }
+
+  a,button,input{ font-family:inherit; }
+  button{ cursor:pointer; }
+
+  .app{
+    display:grid;
+    grid-template-columns: 300px 1fr;
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "header header"
+      "sidebar main";
+    min-height:100vh;
+  }
+  @media (max-width: 880px){
+    .app{ grid-template-columns: 1fr; grid-template-areas: "header" "sidebar" "main"; }
+  }
+
+  /* ---------- HEADER ---------- */
+  header.top{
+    grid-area:header;
+    border-bottom:1px solid var(--border-soft);
+    background:rgba(11,13,18,0.85);
+    backdrop-filter:blur(10px);
+    padding:20px 28px 18px;
+    position:sticky; top:0; z-index:30;
+  }
+  .brand-row{ display:flex; align-items:baseline; justify-content:space-between; gap:20px; flex-wrap:wrap; }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brand .mark{
+    width:34px;height:34px;border-radius:9px;
+    background:linear-gradient(135deg, var(--accent), #2a7d76);
+    display:flex;align-items:center;justify-content:center;
+    font-size:17px; flex-shrink:0;
+    box-shadow:0 0 0 1px rgba(255,255,255,0.06) inset, 0 6px 16px rgba(63,184,175,0.25);
+  }
+  .brand h1{ font-size:19px; font-weight:650; margin:0; letter-spacing:-0.01em; }
+  .brand p{ margin:1px 0 0; font-size:12.5px; color:var(--text-dim); }
+
+  .stat-row{ display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; }
+  .stat-card{
+    background:var(--panel);
+    border:1px solid var(--border-soft);
+    border-radius:var(--radius);
+    padding:12px 18px;
+    min-width:128px;
+    flex:1 1 128px;
+  }
+  .stat-card .num{ font-size:24px; font-weight:650; letter-spacing:-0.02em; line-height:1.1; }
+  .stat-card .lbl{ font-size:11.5px; color:var(--text-dim); margin-top:3px; }
+  .stat-card.accent-visited .num{ color:var(--visited); }
+  .stat-card.accent-wishlist .num{ color:var(--wishlist); }
+
+  .continent-strip{
+    flex:2 1 320px;
+    background:var(--panel);
+    border:1px solid var(--border-soft);
+    border-radius:var(--radius);
+    padding:10px 16px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    gap:7px;
+  }
+  .continent-strip .head{ font-size:11px; color:var(--text-faint); margin-bottom:1px; }
+  .cbars{ display:grid; grid-template-columns:repeat(6,1fr); gap:10px; }
+  .cbar{ display:flex; flex-direction:column; gap:4px; }
+  .cbar .top{ display:flex; justify-content:space-between; font-size:10.5px; color:var(--text-dim); }
+  .cbar .track{ height:5px; border-radius:4px; background:var(--grey); overflow:hidden; }
+  .cbar .fill{ height:100%; border-radius:4px; background:var(--visited); transition:width 300ms ease; }
+  @media (max-width:640px){ .cbars{ grid-template-columns:repeat(3,1fr);} }
+
+  /* ---------- SIDEBAR ---------- */
+  aside.sidebar{
+    grid-area:sidebar;
+    border-right:1px solid var(--border-soft);
+    padding:20px 18px 40px;
+    display:flex;
+    flex-direction:column;
+    gap:22px;
+    height:100%;
+  }
+  .side-block{ display:flex; flex-direction:column; gap:10px; }
+  .side-block h2{ font-size:11.5px; text-transform:none; color:var(--text-faint); margin:0 0 2px; font-weight:600; }
+
+  .search-wrap{ position:relative; }
+  .search-wrap input{
+    width:100%;
+    background:var(--panel);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:10px 12px 10px 34px;
+    border-radius:10px;
+    font-size:13.5px;
+    outline:none;
+    transition: border-color 200ms ease, box-shadow 200ms ease;
+  }
+  .search-wrap input:focus{ border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  .search-wrap svg{ position:absolute; left:11px; top:50%; transform:translateY(-50%); width:15px; height:15px; color:var(--text-faint); }
+
+  .search-results{ display:flex; flex-direction:column; gap:6px; max-height:260px; overflow-y:auto; }
+  .search-empty{ font-size:12.5px; color:var(--text-faint); padding:6px 2px; }
+  .result-row{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    background:var(--panel); border:1px solid var(--border-soft); border-radius:10px;
+    padding:8px 10px;
+  }
+  .result-row .name{ font-size:13px; }
+  .result-row .name .sub{ display:block; font-size:10.5px; color:var(--text-faint); }
+  .result-actions{ display:flex; gap:5px; flex-shrink:0; }
+  .chip-btn{
+    border:1px solid var(--border); background:var(--panel-2); color:var(--text-dim);
+    font-size:10.5px; padding:5px 8px; border-radius:7px; transition:all 200ms ease;
+  }
+  .chip-btn:hover{ border-color:var(--accent); color:var(--text); }
+  .chip-btn.on-visited{ background:rgba(52,211,153,0.16); border-color:var(--visited); color:var(--visited); }
+  .chip-btn.on-wishlist{ background:rgba(244,197,99,0.16); border-color:var(--wishlist); color:var(--wishlist); }
+
+  .view-toggle{
+    display:flex; background:var(--panel); border:1px solid var(--border-soft); border-radius:11px; padding:3px; gap:3px;
+  }
+  .view-toggle button{
+    flex:1; border:none; background:transparent; color:var(--text-dim); padding:8px 6px;
+    border-radius:8px; font-size:12.5px; font-weight:600; transition:all 200ms ease;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .view-toggle button.active.mode-visited{ background:rgba(52,211,153,0.16); color:var(--visited); }
+  .view-toggle button.active.mode-wishlist{ background:rgba(244,197,99,0.16); color:var(--wishlist); }
+  .dot{ width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+  .dot.visited{ background:var(--visited); box-shadow:0 0 6px var(--visited-glow); }
+  .dot.wishlist{ background:var(--wishlist); box-shadow:0 0 6px var(--wishlist-glow); }
+  .dot.grey{ background:var(--grey-hover); }
+
+  .legend{ display:flex; flex-direction:column; gap:7px; font-size:12px; color:var(--text-dim); }
+  .legend .row{ display:flex; align-items:center; gap:8px; }
+
+  .btn{
+    width:100%; text-align:left;
+    display:flex; align-items:center; gap:9px;
+    background:var(--panel); border:1px solid var(--border-soft); color:var(--text);
+    padding:9px 11px; border-radius:10px; font-size:12.5px; font-weight:500;
+    transition:all 200ms ease;
+  }
+  .btn:hover{ background:var(--panel-2); border-color:var(--border); }
+  .btn svg{ width:14px;height:14px; color:var(--text-dim); flex-shrink:0; }
+  .btn-row{ display:flex; gap:8px; }
+  .btn-row .btn{ flex:1; }
+
+  .file-input{ display:none; }
+
+  .danger-link{ background:none; border:none; color:var(--text-faint); font-size:11.5px; text-decoration:underline; text-underline-offset:2px; padding:2px; align-self:flex-start; }
+  .danger-link:hover{ color:#e8837c; }
+
+  /* ---------- MAIN ---------- */
+  main.content{ grid-area:main; padding:22px 28px 60px; min-width:0; }
+
+  .tabs{ display:flex; gap:6px; border-bottom:1px solid var(--border-soft); margin-bottom:20px; }
+  .tab-btn{
+    background:none; border:none; color:var(--text-dim); font-size:13.5px; font-weight:600;
+    padding:9px 4px 12px; position:relative; margin-right:20px;
+  }
+  .tab-btn.active{ color:var(--text); }
+  .tab-btn.active::after{
+    content:""; position:absolute; left:0; right:0; bottom:-1px; height:2px;
+    background:linear-gradient(90deg,var(--accent),#7dd8d0); border-radius:2px;
+  }
+
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+
+  .map-card{
+    background:var(--panel); border:1px solid var(--border-soft); border-radius:18px;
+    padding:18px 18px 10px; position:relative;
+  }
+  .map-card .card-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; gap:10px; flex-wrap:wrap; }
+  .map-card .card-head h3{ font-size:14.5px; margin:0; font-weight:650; }
+  .map-card .card-head .meta{ font-size:12px; color:var(--text-dim); }
+  .export-mini{ display:flex; gap:6px; }
+  .export-mini button{
+    background:var(--panel-2); border:1px solid var(--border-soft); color:var(--text-faint);
+    font-size:10.5px; padding:5px 8px; border-radius:7px; transition:all 200ms ease;
+  }
+  .export-mini button:hover{ color:var(--text); border-color:var(--accent); }
+
+  svg.tile-map{ width:100%; height:auto; display:block; }
+  .country-tile, .state-tile{
+    stroke:rgba(0,0,0,0.35); stroke-width:1;
+    transition: fill 300ms ease, opacity 300ms ease, filter 300ms ease, transform 200ms ease;
+    transform-box: fill-box; transform-origin:center;
+    cursor:pointer;
+  }
+  .country-tile:hover, .state-tile:hover{ transform:scale(1.08); filter:brightness(1.2); }
+  .tile-grey{ fill:var(--grey); }
+  .tile-visited{ fill:var(--visited); filter:drop-shadow(0 0 5px var(--visited-glow)); }
+  .tile-wishlist{ fill:var(--wishlist); filter:drop-shadow(0 0 5px var(--wishlist-glow)); }
+  .tile-pulse{ animation:pulse-tile 550ms ease; }
+  @keyframes pulse-tile{ 0%{transform:scale(1);} 40%{transform:scale(1.35);} 100%{transform:scale(1);} }
+
+  .region-label{ font-size:11px; fill:var(--text-faint); font-weight:600; }
+
+  .states-grid{ display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:2px; }
+  @media (max-width:1000px){ .states-grid{ grid-template-columns:1fr; } }
+
+  .sub-stat-pill{
+    font-size:11.5px; font-weight:650; padding:4px 10px; border-radius:20px;
+    background:rgba(52,211,153,0.14); color:var(--visited); border:1px solid rgba(52,211,153,0.3);
+  }
+
+  #tooltip{
+    position:fixed; pointer-events:none; z-index:100;
+    background:#1a1e29; border:1px solid var(--border); color:var(--text);
+    font-size:12px; padding:6px 10px; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.4);
+    opacity:0; transform:translate(-50%,-130%); transition:opacity 120ms ease;
+    white-space:nowrap;
+  }
+  #tooltip.show{ opacity:1; }
+  #tooltip .status{ color:var(--text-dim); font-size:10.5px; }
+
+  #toast{
+    position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:#171b25; border:1px solid var(--border); color:var(--text);
+    padding:10px 18px; border-radius:11px; font-size:13px; opacity:0; pointer-events:none;
+    transition:all 250ms ease; z-index:200; box-shadow:0 10px 30px rgba(0,0,0,0.5);
+    display:flex; align-items:center; gap:8px;
+  }
+  #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  #toast .tdot{ width:7px;height:7px;border-radius:50%; background:var(--accent); }
+
+  .import-box{ display:none; flex-direction:column; gap:8px; margin-top:2px; }
+  .import-box.open{ display:flex; }
+  .import-box textarea{
+    width:100%; min-height:70px; background:var(--panel-2); border:1px solid var(--border);
+    color:var(--text); border-radius:9px; padding:8px; font-size:11.5px; resize:vertical;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ===================== HEADER ===================== -->
+  <header class="top">
+    <div class="brand-row">
+      <div class="brand">
+        <div class="mark">🧭</div>
+        <div>
+          <h1>Waypoint</h1>
+          <p>Your travel footprint, tracked</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-card accent-visited">
+        <div class="num" id="statTotalVisited">0</div>
+        <div class="lbl">Countries visited</div>
+      </div>
+      <div class="stat-card">
+        <div class="num" id="statPctWorld">0%</div>
+        <div class="lbl">Of the world (195)</div>
+      </div>
+      <div class="stat-card accent-wishlist">
+        <div class="num" id="statWishlist">0</div>
+        <div class="lbl">On the wishlist</div>
+      </div>
+      <div class="continent-strip">
+        <div class="head">By continent</div>
+        <div class="cbars" id="continentBars"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="sidebar">
+
+    <div class="side-block">
+      <h2>Find a country</h2>
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input type="text" id="searchInput" placeholder="Search 195 countries…" autocomplete="off">
+      </div>
+      <div class="search-results" id="searchResults">
+        <div class="search-empty">Start typing to mark a country.</div>
+      </div>
+    </div>
+
+    <div class="side-block">
+      <h2>Map view</h2>
+      <div class="view-toggle" id="viewToggle">
+        <button class="mode-visited active" data-mode="visited"><span class="dot visited"></span>Visited</button>
+        <button class="mode-wishlist" data-mode="wishlist"><span class="dot wishlist"></span>Wishlist</button>
+      </div>
+      <div class="legend">
+        <div class="row"><span class="dot grey"></span>Not yet marked</div>
+        <div class="row"><span class="dot visited"></span>Visited — lit up green</div>
+        <div class="row"><span class="dot wishlist"></span>Wishlist — soft amber</div>
+      </div>
+      <div style="font-size:11.5px;color:var(--text-faint);line-height:1.5;">Click any region to cycle: unvisited → visited → wishlist → unvisited.</div>
+    </div>
+
+    <div class="side-block">
+      <h2>Data</h2>
+      <div class="btn-row">
+        <button class="btn" id="btnCopyJson">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+          Copy JSON
+        </button>
+        <button class="btn" id="btnDownloadJson">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 19h16"/></svg>
+          Download
+        </button>
+      </div>
+      <button class="btn" id="btnImportToggle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21V9m0 0l-4 4m4-4l4 4"/><path d="M4 5h16"/></svg>
+        Import data…
+      </button>
+      <div class="import-box" id="importBox">
+        <textarea id="importText" placeholder="Paste exported JSON here…"></textarea>
+        <div class="btn-row">
+          <button class="btn" id="btnImportFile" style="justify-content:center;">Choose file</button>
+          <button class="btn" id="btnImportApply" style="justify-content:center;">Apply</button>
+        </div>
+        <input type="file" id="fileInput" class="file-input" accept="application/json">
+      </div>
+    </div>
+
+    <button class="danger-link" id="btnResetAll">Reset all travel data</button>
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <main class="content">
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="world">World Map</button>
+      <button class="tab-btn" data-tab="states">Detailed States Map</button>
+    </div>
+
+    <!-- WORLD PANEL -->
+    <section class="panel active" id="panel-world">
+      <div class="map-card">
+        <div class="card-head">
+          <div>
+            <h3>World, by region</h3>
+            <div class="meta">195 countries, grouped by continent. Tap a tile to set its status.</div>
+          </div>
+          <div class="export-mini">
+            <button data-export="png" data-target="worldSvg" data-name="world-map">PNG</button>
+            <button data-export="svg" data-target="worldSvg" data-name="world-map">SVG</button>
+          </div>
+        </div>
+        <svg id="worldSvg" class="tile-map" viewBox="0 0 1000 620" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+    </section>
+
+    <!-- STATES PANEL -->
+    <section class="panel" id="panel-states">
+      <div class="states-grid" id="statesGrid"></div>
+    </section>
+  </main>
+
+</div>
+
+<div id="tooltip"><div class="name"></div><div class="status"></div></div>
+<div id="toast"><span class="tdot"></span><span class="msg"></span></div>
+
+<script>
+(function(){
+
+/* =========================================================
+   1. DATA — 195 UN member states + Holy See + Palestine
+   ========================================================= */
+const WORLD = {
+  "North America":[
+    ["AG","Antigua and Barbuda"],["BS","Bahamas"],["BB","Barbados"],["BZ","Belize"],
+    ["CA","Canada"],["CR","Costa Rica"],["CU","Cuba"],["DM","Dominica"],
+    ["DO","Dominican Republic"],["SV","El Salvador"],["GD","Grenada"],["GT","Guatemala"],
+    ["HT","Haiti"],["HN","Honduras"],["JM","Jamaica"],["MX","Mexico"],
+    ["NI","Nicaragua"],["PA","Panama"],["KN","Saint Kitts and Nevis"],["LC","Saint Lucia"],
+    ["VC","Saint Vincent and the Grenadines"],["TT","Trinidad and Tobago"],["US","United States"]
+  ],
+  "South America":[
+    ["AR","Argentina"],["BO","Bolivia"],["BR","Brazil"],["CL","Chile"],
+    ["CO","Colombia"],["EC","Ecuador"],["GY","Guyana"],["PY","Paraguay"],
+    ["PE","Peru"],["SR","Suriname"],["UY","Uruguay"],["VE","Venezuela"]
+  ],
+  "Europe":[
+    ["AL","Albania"],["AD","Andorra"],["AT","Austria"],["BY","Belarus"],
+    ["BE","Belgium"],["BA","Bosnia and Herzegovina"],["BG","Bulgaria"],["HR","Croatia"],
+    ["CZ","Czechia"],["DK","Denmark"],["EE","Estonia"],["FI","Finland"],
+    ["FR","France"],["DE","Germany"],["GR","Greece"],["HU","Hungary"],
+    ["IS","Iceland"],["IE","Ireland"],["IT","Italy"],["LV","Latvia"],
+    ["LI","Liechtenstein"],["LT","Lithuania"],["LU","Luxembourg"],["MT","Malta"],
+    ["MD","Moldova"],["MC","Monaco"],["ME","Montenegro"],["NL","Netherlands"],
+    ["MK","North Macedonia"],["NO","Norway"],["PL","Poland"],["PT","Portugal"],
+    ["RO","Romania"],["RU","Russia"],["SM","San Marino"],["RS","Serbia"],
+    ["SK","Slovakia"],["SI","Slovenia"],["ES","Spain"],["SE","Sweden"],
+    ["CH","Switzerland"],["UA","Ukraine"],["GB","United Kingdom"],["VA","Holy See (Vatican City)"]
+  ],
+  "Africa":[
+    ["DZ","Algeria"],["AO","Angola"],["BJ","Benin"],["BW","Botswana"],
+    ["BF","Burkina Faso"],["BI","Burundi"],["CV","Cabo Verde"],["CM","Cameroon"],
+    ["CF","Central African Republic"],["TD","Chad"],["KM","Comoros"],["CG","Congo, Republic of the"],
+    ["CD","Congo, DR"],["CI","Cote d'Ivoire"],["DJ","Djibouti"],["EG","Egypt"],
+    ["GQ","Equatorial Guinea"],["ER","Eritrea"],["SZ","Eswatini"],["ET","Ethiopia"],
+    ["GA","Gabon"],["GM","Gambia"],["GH","Ghana"],["GN","Guinea"],
+    ["GW","Guinea-Bissau"],["KE","Kenya"],["LS","Lesotho"],["LR","Liberia"],
+    ["LY","Libya"],["MG","Madagascar"],["MW","Malawi"],["ML","Mali"],
+    ["MR","Mauritania"],["MU","Mauritius"],["MA","Morocco"],["MZ","Mozambique"],
+    ["NA","Namibia"],["NE","Niger"],["NG","Nigeria"],["RW","Rwanda"],
+    ["ST","Sao Tome and Principe"],["SN","Senegal"],["SC","Seychelles"],["SL","Sierra Leone"],
+    ["SO","Somalia"],["ZA","South Africa"],["SS","South Sudan"],["SD","Sudan"],
+    ["TZ","Tanzania"],["TG","Togo"],["TN","Tunisia"],["UG","Uganda"],
+    ["ZM","Zambia"],["ZW","Zimbabwe"]
+  ],
+  "Asia":[
+    ["AF","Afghanistan"],["AM","Armenia"],["AZ","Azerbaijan"],["BH","Bahrain"],
+    ["BD","Bangladesh"],["BT","Bhutan"],["BN","Brunei"],["KH","Cambodia"],
+    ["CN","China"],["CY","Cyprus"],["GE","Georgia"],["IN","India"],
+    ["ID","Indonesia"],["IR","Iran"],["IQ","Iraq"],["IL","Israel"],
+    ["JP","Japan"],["JO","Jordan"],["KZ","Kazakhstan"],["KW","Kuwait"],
+    ["KG","Kyrgyzstan"],["LA","Laos"],["LB","Lebanon"],["MY","Malaysia"],
+    ["MV","Maldives"],["MN","Mongolia"],["MM","Myanmar"],["NP","Nepal"],
+    ["KP","North Korea"],["OM","Oman"],["PK","Pakistan"],["PS","Palestine"],
+    ["PH","Philippines"],["QA","Qatar"],["SA","Saudi Arabia"],["SG","Singapore"],
+    ["KR","South Korea"],["LK","Sri Lanka"],["SY","Syria"],["TJ","Tajikistan"],
+    ["TH","Thailand"],["TL","Timor-Leste"],["TR","Turkey"],["TM","Turkmenistan"],
+    ["AE","United Arab Emirates"],["UZ","Uzbekistan"],["VN","Vietnam"],["YE","Yemen"]
+  ],
+  "Oceania":[
+    ["AU","Australia"],["FJ","Fiji"],["KI","Kiribati"],["MH","Marshall Islands"],
+    ["FM","Micronesia"],["NR","Nauru"],["NZ","New Zealand"],["PW","Palau"],
+    ["PG","Papua New Guinea"],["WS","Samoa"],["SB","Solomon Islands"],["TO","Tonga"],
+    ["TV","Tuvalu"],["VU","Vanuatu"]
+  ]
+};
+
+const ALL_COUNTRIES = []; // {code,name,continent}
+Object.keys(WORLD).forEach(cont=>{
+  WORLD[cont].forEach(([code,name])=>ALL_COUNTRIES.push({code,name,continent:cont}));
+});
+const COUNTRY_TOTAL = ALL_COUNTRIES.length; // should be 195
+
+const STATE_GROUPS = {
+  US:{ label:"United States", unit:"states", items:[
+    ["AL","Alabama"],["AK","Alaska"],["AZ","Arizona"],["AR","Arkansas"],["CA","California"],
+    ["CO","Colorado"],["CT","Connecticut"],["DE","Delaware"],["FL","Florida"],["GA","Georgia"],
+    ["HI","Hawaii"],["ID","Idaho"],["IL","Illinois"],["IN","Indiana"],["IA","Iowa"],
+    ["KS","Kansas"],["KY","Kentucky"],["LA","Louisiana"],["ME","Maine"],["MD","Maryland"],
+    ["MA","Massachusetts"],["MI","Michigan"],["MN","Minnesota"],["MS","Mississippi"],["MO","Missouri"],
+    ["MT","Montana"],["NE","Nebraska"],["NV","Nevada"],["NH","New Hampshire"],["NJ","New Jersey"],
+    ["NM","New Mexico"],["NY","New York"],["NC","North Carolina"],["ND","North Dakota"],["OH","Ohio"],
+    ["OK","Oklahoma"],["OR","Oregon"],["PA","Pennsylvania"],["RI","Rhode Island"],["SC","South Carolina"],
+    ["SD","South Dakota"],["TN","Tennessee"],["TX","Texas"],["UT","Utah"],["VT","Vermont"],
+    ["VA","Virginia"],["WA","Washington"],["WV","West Virginia"],["WI","Wisconsin"],["WY","Wyoming"]
+  ]},
+  CA:{ label:"Canada", unit:"provinces & territories", items:[
+    ["AB","Alberta"],["BC","British Columbia"],["MB","Manitoba"],["NB","New Brunswick"],
+    ["NL","Newfoundland and Labrador"],["NS","Nova Scotia"],["ON","Ontario"],["PE","Prince Edward Island"],
+    ["QC","Quebec"],["SK","Saskatchewan"],["NT","Northwest Territories"],["NU","Nunavut"],["YT","Yukon"]
+  ]},
+  AU:{ label:"Australia", unit:"states & territories", items:[
+    ["NSW","New South Wales"],["VIC","Victoria"],["QLD","Queensland"],["WA","Western Australia"],
+    ["SA","South Australia"],["TAS","Tasmania"],["ACT","Australian Capital Territory"],["NT","Northern Territory"]
+  ]},
+  IN:{ label:"India", unit:"states", items:[
+    ["AP","Andhra Pradesh"],["AR","Arunachal Pradesh"],["AS","Assam"],["BR","Bihar"],
+    ["CG","Chhattisgarh"],["GA","Goa"],["GJ","Gujarat"],["HR","Haryana"],
+    ["HP","Himachal Pradesh"],["JH","Jharkhand"],["KA","Karnataka"],["KL","Kerala"],
+    ["MP","Madhya Pradesh"],["MH","Maharashtra"],["MN","Manipur"],["ML","Meghalaya"],
+    ["MZ","Mizoram"],["NL","Nagaland"],["OD","Odisha"],["PB","Punjab"],
+    ["RJ","Rajasthan"],["SK","Sikkim"],["TN","Tamil Nadu"],["TS","Telangana"],
+    ["TR","Tripura"],["UP","Uttar Pradesh"],["UK","Uttarakhand"],["WB","West Bengal"]
+  ]}
+};
+
+/* =========================================================
+   2. STATE (persisted)
+   ========================================================= */
+const LS_COUNTRIES = "waypoint.countries.v1";
+const LS_SUBSTATES = "waypoint.substates.v1";
+
+let countryData = loadJSON(LS_COUNTRIES, {});     // { CODE: 'visited' | 'wishlist' }
+let subStateData = loadJSON(LS_SUBSTATES, {});    // { US:{TX:'visited'}, CA:{...}, ... }
+let viewMode = "visited"; // 'visited' | 'wishlist'
+
+function loadJSON(key, fallback){
+  try{
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  }catch(e){ return fallback; }
+}
+function persist(){
+  localStorage.setItem(LS_COUNTRIES, JSON.stringify(countryData));
+  localStorage.setItem(LS_SUBSTATES, JSON.stringify(subStateData));
+}
+function cycle(status){
+  return status === "visited" ? "wishlist" : status === "wishlist" ? undefined : "visited";
+}
+
+/* =========================================================
+   3. SVG TILE LAYOUT HELPERS
+   ========================================================= */
+function roundedRectPath(x,y,w,h,r){
+  r = Math.max(0, Math.min(r, w/2, h/2));
+  return `M${x+r},${y} h${w-2*r} a${r},${r} 0 0 1 ${r},${r} v${h-2*r} a${r},${r} 0 0 1 -${r},${r} h-${w-2*r} a${r},${r} 0 0 1 -${r},-${r} v-${h-2*r} a${r},${r} 0 0 1 ${r},-${r} z`;
+}
+function layoutGrid(items, x0,y0,w,h, gap){
+  gap = gap==null?4:gap;
+  const n = items.length;
+  if(n===0) return [];
+  let cols = Math.max(1, Math.round(Math.sqrt(n * (w/h))));
+  let rows = Math.ceil(n/cols);
+  const tileW = (w - gap*(cols-1)) / cols;
+  const tileH = (h - gap*(rows-1)) / rows;
+  const size = Math.max(6, Math.min(tileW, tileH));
+  // re-center block within the region
+  const usedW = cols*size + (cols-1)*gap;
+  const usedH = rows*size + (rows-1)*gap;
+  const offX = x0 + (w-usedW)/2;
+  const offY = y0 + (h-usedH)/2;
+  return items.map((item,i)=>{
+    const col = i % cols, row = Math.floor(i/cols);
+    return { item, x: offX+col*(size+gap), y: offY+row*(size+gap), size };
+  });
+}
+
+/* =========================================================
+   4. BUILD WORLD MAP SVG
+   ========================================================= */
+const REGIONS = {
+  "North America": {x:20,  y:56,  w:290, h:210},
+  "Europe":        {x:340, y:44,  w:250, h:170},
+  "Asia":          {x:610, y:44,  w:370, h:280},
+  "South America": {x:150, y:300, w:210, h:270},
+  "Africa":        {x:390, y:250, w:290, h:330},
+  "Oceania":       {x:700, y:360, w:280, h:220}
+};
+
+const worldSvg = document.getElementById("worldSvg");
+function buildWorldMap(){
+  let frag = "";
+  Object.keys(REGIONS).forEach(region=>{
+    const r = REGIONS[region];
+    frag += `<text class="region-label" x="${r.x}" y="${r.y-10}">${region}</text>`;
+    const placed = layoutGrid(WORLD[region], r.x, r.y, r.w, r.h, 4);
+    placed.forEach(p=>{
+      const [code,name] = p.item;
+      frag += `<path id="c_${code}" class="country-tile tile-grey" data-code="${code}" data-name="${name}" data-continent="${region}" d="${roundedRectPath(p.x,p.y,p.size,p.size,4)}"></path>`;
+    });
+  });
+  worldSvg.innerHTML = frag;
+}
+
+/* =========================================================
+   5. BUILD STATE MAPS
+   ========================================================= */
+const statesGrid = document.getElementById("statesGrid");
+function buildStateMaps(){
+  let frag = "";
+  Object.keys(STATE_GROUPS).forEach(ccode=>{
+    const group = STATE_GROUPS[ccode];
+    const placed = layoutGrid(group.items, 6, 6, 288, 168, 4);
+    let tiles = "";
+    placed.forEach(p=>{
+      const [code,name] = p.item;
+      tiles += `<path id="s_${ccode}_${code}" class="state-tile tile-grey" data-country="${ccode}" data-code="${code}" data-name="${name}" d="${roundedRectPath(p.x,p.y,p.size,p.size,3)}"></path>`;
+    });
+    frag += `
+      <div class="map-card">
+        <div class="card-head">
+          <div>
+            <h3>${group.label}</h3>
+            <div class="meta">${group.items.length} ${group.unit}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="sub-stat-pill" id="substat_${ccode}">0%</span>
+            <div class="export-mini">
+              <button data-export="png" data-target="svg_${ccode}" data-name="${group.label.toLowerCase().replace(/\\s+/g,'-')}-map">PNG</button>
+              <button data-export="svg" data-target="svg_${ccode}" data-name="${group.label.toLowerCase().replace(/\\s+/g,'-')}-map">SVG</button>
+            </div>
+          </div>
+        </div>
+        <svg id="svg_${ccode}" class="tile-map" viewBox="0 0 300 180" xmlns="http://www.w3.org/2000/svg">${tiles}</svg>
+      </div>`;
+  });
+  statesGrid.innerHTML = frag;
+}
+
+/* =========================================================
+   6. RENDER — colors, stats, substats
+   ========================================================= */
+function tileClassFor(status){
+  if(viewMode === "visited") return status === "visited" ? "tile-visited" : "tile-grey";
+  return status === "wishlist" ? "tile-wishlist" : "tile-grey";
+}
+
+function paintAll(){
+  document.querySelectorAll(".country-tile").forEach(el=>{
+    const status = countryData[el.dataset.code];
+    el.setAttribute("class", "country-tile " + tileClassFor(status));
+  });
+  document.querySelectorAll(".state-tile").forEach(el=>{
+    const c = el.dataset.country, code = el.dataset.code;
+    const status = (subStateData[c] || {})[code];
+    el.setAttribute("class", "state-tile " + tileClassFor(status));
+  });
+}
+
+function renderStats(){
+  const visited = ALL_COUNTRIES.filter(c=>countryData[c.code]==="visited").length;
+  const wishlist = ALL_COUNTRIES.filter(c=>countryData[c.code]==="wishlist").length;
+  document.getElementById("statTotalVisited").textContent = visited;
+  document.getElementById("statPctWorld").textContent = ((visited/COUNTRY_TOTAL)*100).toFixed(1) + "%";
+  document.getElementById("statWishlist").textContent = wishlist;
+
+  const bars = Object.keys(WORLD).map(region=>{
+    const list = WORLD[region];
+    const v = list.filter(([code])=>countryData[code]==="visited").length;
+    const pct = list.length ? (v/list.length*100) : 0;
+    return `<div class="cbar">
+      <div class="top"><span>${region}</span><span>${v}/${list.length}</span></div>
+      <div class="track"><div class="fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join("");
+  document.getElementById("continentBars").innerHTML = bars;
+}
+
+function renderSubStats(){
+  Object.keys(STATE_GROUPS).forEach(ccode=>{
+    const items = STATE_GROUPS[ccode].items;
+    const data = subStateData[ccode] || {};
+    const v = items.filter(([code])=>data[code]==="visited").length;
+    const pct = items.length ? Math.round((v/items.length)*100) : 0;
+    const el = document.getElementById("substat_"+ccode);
+    if(el) el.textContent = pct + "% visited";
+  });
+}
+
+function renderAll(){
+  paintAll();
+  renderStats();
+  renderSubStats();
+}
+
+/* =========================================================
+   7. INTERACTIONS — click to cycle
+   ========================================================= */
+function pulseEl(el){
+  el.classList.remove("tile-pulse");
+  void el.offsetWidth; // restart animation
+  el.classList.add("tile-pulse");
+}
+
+worldSvg.addEventListener("click", e=>{
+  const path = e.target.closest(".country-tile");
+  if(!path) return;
+  const code = path.dataset.code;
+  const next = cycle(countryData[code]);
+  if(next) countryData[code] = next; else delete countryData[code];
+  persist();
+  renderAll();
+  pulseEl(path);
+  renderSearch(document.getElementById("searchInput").value);
+});
+
+statesGrid.addEventListener("click", e=>{
+  const path = e.target.closest(".state-tile");
+  if(!path) return;
+  const ccode = path.dataset.country, code = path.dataset.code;
+  subStateData[ccode] = subStateData[ccode] || {};
+  const next = cycle(subStateData[ccode][code]);
+  if(next) subStateData[ccode][code] = next; else delete subStateData[ccode][code];
+  persist();
+  renderAll();
+  pulseEl(path);
+});
+
+/* Tooltip on hover, delegated for both maps */
+const tooltip = document.getElementById("tooltip");
+function attachTooltip(container, selector, statusLookup){
+  container.addEventListener("mousemove", e=>{
+    const el = e.target.closest(selector);
+    if(!el){ tooltip.classList.remove("show"); return; }
+    const status = statusLookup(el) || "unmarked";
+    tooltip.querySelector(".name").textContent = el.dataset.name;
+    tooltip.querySelector(".status").textContent = status[0].toUpperCase()+status.slice(1);
+    tooltip.style.left = e.clientX + "px";
+    tooltip.style.top = e.clientY + "px";
+    tooltip.classList.add("show");
+  });
+  container.addEventListener("mouseleave", ()=> tooltip.classList.remove("show"));
+}
+attachTooltip(worldSvg, ".country-tile", el=>countryData[el.dataset.code]);
+attachTooltip(statesGrid, ".state-tile", el=>(subStateData[el.dataset.country]||{})[el.dataset.code]);
+
+/* =========================================================
+   8. VIEW TOGGLE (Visited map <-> Wishlist map)
+   ========================================================= */
+document.getElementById("viewToggle").addEventListener("click", e=>{
+  const btn = e.target.closest("button[data-mode]");
+  if(!btn) return;
+  viewMode = btn.dataset.mode;
+  document.querySelectorAll("#viewToggle button").forEach(b=>b.classList.toggle("active", b===btn));
+  paintAll();
+});
+
+/* =========================================================
+   9. TABS
+   ========================================================= */
+document.querySelectorAll(".tab-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("panel-"+btn.dataset.tab).classList.add("active");
+  });
+});
+
+/* =========================================================
+   10. SEARCH
+   ========================================================= */
+const searchResults = document.getElementById("searchResults");
+function renderSearch(query){
+  query = (query||"").trim().toLowerCase();
+  if(!query){
+    searchResults.innerHTML = `<div class="search-empty">Start typing to mark a country.</div>`;
+    return;
+  }
+  const matches = ALL_COUNTRIES.filter(c=>c.name.toLowerCase().includes(query)).slice(0,8);
+  if(matches.length===0){
+    searchResults.innerHTML = `<div class="search-empty">No country matches "${query}".</div>`;
+    return;
+  }
+  searchResults.innerHTML = matches.map(c=>{
+    const status = countryData[c.code];
+    return `<div class="result-row" data-code="${c.code}">
+      <div class="name">${c.name}<span class="sub">${c.continent}</span></div>
+      <div class="result-actions">
+        <button class="chip-btn ${status==='visited'?'on-visited':''}" data-set="visited">Visited</button>
+        <button class="chip-btn ${status==='wishlist'?'on-wishlist':''}" data-set="wishlist">Wishlist</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+document.getElementById("searchInput").addEventListener("input", e=> renderSearch(e.target.value));
+
+searchResults.addEventListener("click", e=>{
+  const btn = e.target.closest("button[data-set]");
+  if(!btn) return;
+  const row = e.target.closest(".result-row");
+  const code = row.dataset.code;
+  const want = btn.dataset.set;
+  countryData[code] = (countryData[code] === want) ? undefined : want;
+  if(!countryData[code]) delete countryData[code];
+  persist();
+  renderAll();
+  renderSearch(document.getElementById("searchInput").value);
+  const tile = document.getElementById("c_"+code);
+  if(tile) pulseEl(tile);
+  showToast(`${code in countryData ? (countryData[code]==='visited'?'Marked visited':'Added to wishlist') : 'Cleared'}`);
+});
+
+/* =========================================================
+   11. TOAST
+   ========================================================= */
+let toastTimer = null;
+function showToast(msg){
+  const toast = document.getElementById("toast");
+  toast.querySelector(".msg").textContent = msg;
+  toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> toast.classList.remove("show"), 2200);
+}
+
+/* =========================================================
+   12. EXPORT / IMPORT JSON
+   ========================================================= */
+function fullExportPayload(){
+  return { exportedAt: new Date().toISOString(), countries: countryData, subStates: subStateData };
+}
+document.getElementById("btnCopyJson").addEventListener("click", async ()=>{
+  const text = JSON.stringify(fullExportPayload(), null, 2);
+  try{
+    await navigator.clipboard.writeText(text);
+    showToast("Copied travel data to clipboard");
+  }catch(e){
+    showToast("Copy failed — try Download instead");
+  }
+});
+document.getElementById("btnDownloadJson").addEventListener("click", ()=>{
+  const text = JSON.stringify(fullExportPayload(), null, 2);
+  downloadBlob(new Blob([text], {type:"application/json"}), "waypoint-travel-data.json");
+  showToast("Downloaded waypoint-travel-data.json");
+});
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+const importBox = document.getElementById("importBox");
+document.getElementById("btnImportToggle").addEventListener("click", ()=> importBox.classList.toggle("open"));
+document.getElementById("btnImportFile").addEventListener("click", ()=> document.getElementById("fileInput").click());
+document.getElementById("fileInput").addEventListener("change", e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=> { document.getElementById("importText").value = reader.result; };
+  reader.readAsText(file);
+});
+document.getElementById("btnImportApply").addEventListener("click", ()=>{
+  const raw = document.getElementById("importText").value.trim();
+  if(!raw){ showToast("Paste or choose a JSON file first"); return; }
+  try{
+    const parsed = JSON.parse(raw);
+    if(parsed.countries) Object.assign(countryData, parsed.countries);
+    if(parsed.subStates) {
+      Object.keys(parsed.subStates).forEach(k=>{
+        subStateData[k] = Object.assign(subStateData[k]||{}, parsed.subStates[k]);
+      });
+    }
+    persist();
+    renderAll();
+    renderSearch(document.getElementById("searchInput").value);
+    importBox.classList.remove("open");
+    document.getElementById("importText").value = "";
+    showToast("Import successful");
+  }catch(err){
+    showToast("Invalid JSON — import failed");
+  }
+});
+
+document.getElementById("btnResetAll").addEventListener("click", ()=>{
+  if(!confirm("Clear all visited/wishlist data? This cannot be undone.")) return;
+  countryData = {}; subStateData = {};
+  persist();
+  renderAll();
+  renderSearch("");
+  showToast("All travel data cleared");
+});
+
+/* =========================================================
+   13. SHARE MAP — export SVG as PNG or SVG file
+   ========================================================= */
+function exportSvgElement(svgEl, filename, type){
+  const clone = svgEl.cloneNode(true);
+  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  const bg = document.createElementNS("http://www.w3.org/2000/svg","rect");
+  const vb = svgEl.viewBox.baseVal;
+  bg.setAttribute("x", vb.x); bg.setAttribute("y", vb.y);
+  bg.setAttribute("width", vb.width); bg.setAttribute("height", vb.height);
+  bg.setAttribute("fill", "#0b0d12");
+  clone.insertBefore(bg, clone.firstChild);
+
+  const serializer = new XMLSerializer();
+  const svgString = serializer.serializeToString(clone);
+
+  if(type === "svg"){
+    downloadBlob(new Blob([svgString], {type:"image/svg+xml"}), filename + ".svg");
+    showToast("Downloaded " + filename + ".svg");
+    return;
+  }
+  // PNG via canvas
+  const scale = 2;
+  const w = vb.width * scale, h = vb.height * scale;
+  const img = new Image();
+  const svgBlob = new Blob([svgString], {type:"image/svg+xml;charset=utf-8"});
+  const url = URL.createObjectURL(svgBlob);
+  img.onload = ()=>{
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#0b0d12";
+    ctx.fillRect(0,0,w,h);
+    ctx.drawImage(img, 0, 0, w, h);
+    URL.revokeObjectURL(url);
+    canvas.toBlob(blob=>{
+      downloadBlob(blob, filename + ".png");
+      showToast("Downloaded " + filename + ".png");
+    });
+  };
+  img.onerror = ()=>{ URL.revokeObjectURL(url); showToast("PNG export failed"); };
+  img.src = url;
+}
+
+document.addEventListener("click", e=>{
+  const btn = e.target.closest("[data-export]");
+  if(!btn) return;
+  const svgEl = document.getElementById(btn.dataset.target);
+  if(!svgEl) return;
+  exportSvgElement(svgEl, btn.dataset.name, btn.dataset.export);
+});
+
+/* =========================================================
+   14. INIT
+   ========================================================= */
+buildWorldMap();
+buildStateMaps();
+renderAll();
+
+})();
+</script>
+</body>
+</html>
