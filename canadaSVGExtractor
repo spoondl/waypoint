@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Canada SVG Extractor</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f4f4f9; }
+        textarea { width: 100%; height: 60vh; font-family: monospace; padding: 10px; margin-top: 20px; }
+        input[type="file"] { padding: 10px; background: #fff; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+
+    <h2>Canada SVG Map Formatter</h2>
+    <p>Select your downloaded <b>canada.svg</b> file below.</p>
+    
+    <input type="file" id="fileInput" accept=".svg">
+    
+    <textarea id="outputBox" placeholder="Your formatted <path> tags will appear here..."></textarea>
+
+    <script>
+        const provinces = {
+            "AB": "Alberta", "BC": "British Columbia", "MB": "Manitoba", "NB": "New Brunswick",
+            "NL": "Newfoundland", "NS": "Nova Scotia", "ON": "Ontario", 
+            "PE": "Prince Edward Island", "QC": "Quebec", "SK": "Saskatchewan", 
+            "NT": "Northwest Territories", "NU": "Nunavut", "YT": "Yukon"
+        };
+
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(text, "image/svg+xml");
+                const paths = doc.querySelectorAll('path');
+                
+                let formattedHtml = "";
+                let count = 0;
+
+                paths.forEach(p => {
+                    // Grab any identifying attribute the SVG creator might have used
+                    const id = p.getAttribute('id') || '';
+                    const name = p.getAttribute('name') || p.getAttribute('data-name') || p.getAttribute('title') || '';
+                    const className = p.getAttribute('class') || '';
+                    const d = p.getAttribute('d');
+                    
+                    if (d && d.length > 10) {
+                        let matchedAbbr = null;
+                        let matchedName = null;
+                        
+                        const combinedData = (id + " " + name + " " + className).toLowerCase();
+
+                        // Cross-reference against our dictionary
+                        for (const [code, provName] of Object.entries(provinces)) {
+                            if (combinedData.includes(provName.toLowerCase()) || combinedData.includes(code.toLowerCase())) {
+                                matchedAbbr = code;
+                                matchedName = provName;
+                                break;
+                            }
+                        }
+
+                        if (matchedAbbr) {
+                            formattedHtml += `<path id="CA-${matchedAbbr}" data-region="${matchedName}" d="${d}"/>\n`;
+                            count++;
+                        }
+                    }
+                });
+
+                if (count === 0) {
+                    document.getElementById('outputBox').value = "Error: Scanned all paths but could not match them to Canadian provinces. Ensure the file contains actual state paths and is an SVG.";
+                } else {
+                    document.getElementById('outputBox').value = formattedHtml;
+                    alert("Success! " + count + " provinces formatted.");
+                }
+            };
+            
+            reader.readAsText(file);
+        });
+    </script>
+
+</body>
+</html>
