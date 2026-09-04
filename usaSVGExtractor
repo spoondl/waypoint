@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>USA SVG Extractor</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f4f4f9; }
+        textarea { width: 100%; height: 60vh; font-family: monospace; padding: 10px; margin-top: 20px; }
+        input[type="file"] { padding: 10px; background: #fff; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+
+    <h2>USA SVG Map Formatter</h2>
+    <p>Select your downloaded <b>us.svg</b> file below. It will extract and format the paths instantly.</p>
+    
+    <input type="file" id="fileInput" accept=".svg">
+    
+    <textarea id="outputBox" placeholder="Your formatted <path> tags will appear here..."></textarea>
+
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                
+                // Parse the SVG file
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(text, "image/svg+xml");
+                const paths = doc.querySelectorAll('path');
+                
+                let formattedHtml = "";
+                let count = 0;
+
+                // Simplemaps uses 'id', 'name', and 'd' attributes
+                paths.forEach(p => {
+                    const id = p.getAttribute('id');
+                    const name = p.getAttribute('name');
+                    const d = p.getAttribute('d');
+                    
+                    // Filter out generic paths, keep state paths (which have 2-letter IDs)
+                    if (id && id.length === 2 && d) {
+                        const abbr = id.toUpperCase();
+                        const fullName = name || abbr;
+                        
+                        formattedHtml += `<path id="US-${abbr}" data-region="${fullName}" d="${d}"/>\n`;
+                        count++;
+                    }
+                });
+
+                if (count === 0) {
+                    document.getElementById('outputBox').value = "Error: Couldn't find valid state paths in this file.";
+                } else {
+                    document.getElementById('outputBox').value = formattedHtml;
+                    alert("Success! " + count + " states formatted.");
+                }
+            };
+            
+            // Read the file as raw text
+            reader.readAsText(file);
+        });
+    </script>
+
+</body>
+</html>
