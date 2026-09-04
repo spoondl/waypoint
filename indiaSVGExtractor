@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>India SVG Extractor</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f4f4f9; }
+        textarea { width: 100%; height: 60vh; font-family: monospace; padding: 10px; margin-top: 20px; }
+        input[type="file"] { padding: 10px; background: #fff; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+
+    <h2>India SVG Map Formatter</h2>
+    <p>Select your downloaded <b>india.svg</b> file. It will attempt to match the 36 states and union territories.</p>
+    
+    <input type="file" id="fileInput" accept=".svg">
+    
+    <textarea id="outputBox" placeholder="Your formatted <path> tags will appear here"></textarea>
+
+    <script>
+        // Official Indian states and union territories matched to your app's exact keys
+        const states = {
+            "AP": "Andhra Pradesh", "AR": "Arunachal Pradesh", "AS": "Assam", "BR": "Bihar", 
+            "CG": "Chhattisgarh", "GA": "Goa", "GJ": "Gujarat", "HR": "Haryana", 
+            "HP": "Himachal Pradesh", "JH": "Jharkhand", "KA": "Karnataka", "KL": "Kerala", 
+            "MP": "Madhya Pradesh", "MH": "Maharashtra", "MN": "Manipur", "ML": "Meghalaya", 
+            "MZ": "Mizoram", "NL": "Nagaland", "OD": "Odisha", "PB": "Punjab", 
+            "RJ": "Rajasthan", "SK": "Sikkim", "TN": "Tamil Nadu", "TS": "Telangana", 
+            "TR": "Tripura", "UP": "Uttar Pradesh", "UK": "Uttarakhand", "WB": "West Bengal",
+            "AN": "Andaman and Nicobar Islands", "CH": "Chandigarh", 
+            "DH": "Dadra and Nagar Haveli",
+            "DL": "Delhi", "JK": "Jammu and Kashmir", "LA": "Ladakh", 
+            "LD": "Lakshadweep", "PY": "Puducherry"
+        };
+
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(text, "image/svg+xml");
+                const paths = doc.querySelectorAll('path');
+                
+                let formattedHtml = "";
+                let count = 0;
+
+                paths.forEach(p => {
+                    const id = p.getAttribute('id') || '';
+                    const name = p.getAttribute('name') || p.getAttribute('data-name') || p.getAttribute('title') || '';
+                    const className = p.getAttribute('class') || '';
+                    const d = p.getAttribute('d');
+                    
+                    if (d && d.length > 10) {
+                        let matchedAbbr = null;
+                        let matchedName = null;
+                        
+                        const combinedData = (id + " " + name + " " + className).toLowerCase();
+
+                        // 1. Try matching the full name
+                        for (const [code, stateName] of Object.entries(states)) {
+                            // Using a special catch for Daman and Diu / Dadra
+                            if (combinedData.includes(stateName.toLowerCase()) || 
+                               (code === 'DH' && combinedData.includes('daman'))) {
+                                matchedAbbr = code;
+                                // Restore to the exact full string your app expects
+                                matchedName = code === 'DH' ? "Dadra and Nagar Haveli and Daman and Diu" : stateName;
+                                break;
+                            }
+                        }
+
+                        // 2. Try exact ID matching if name failed
+                        if (!matchedAbbr) {
+                            const upperId = id.toUpperCase();
+                            if (states[upperId]) {
+                                matchedAbbr = upperId;
+                                matchedName = states[upperId];
+                            } else if (upperId.startsWith("IN-") && states[upperId.replace("IN-", "")]) {
+                                matchedAbbr = upperId.replace("IN-", "");
+                                matchedName = states[matchedAbbr];
+                            }
+                        }
+
+                        if (matchedAbbr) {
+                            formattedHtml += `<path id="IN-${matchedAbbr}" data-region="${matchedName}" d="${d}"/>\n`;
+                            count++;
+                        }
+                    }
+                });
+
+                if (count === 0) {
+                    document.getElementById('outputBox').value = "Error: Could not match paths. Ensure the SVG file contains valid Indian regions.";
+                } else {
+                    document.getElementById('outputBox').value = formattedHtml;
+                    alert("Success! " + count + " states/territories formatted.");
+                }
+            };
+            
+            reader.readAsText(file);
+        });
+    </script>
+
+</body>
+</html>
